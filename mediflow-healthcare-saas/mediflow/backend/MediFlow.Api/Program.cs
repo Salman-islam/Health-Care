@@ -1,0 +1,14 @@
+using System.Text;
+using MediFlow.Api.Data;
+using MediFlow.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+var builder=WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();builder.Services.AddEndpointsApiExplorer();builder.Services.AddSwaggerGen();
+builder.Services.AddDbContext<AppDbContext>(o=>o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddScoped<AuthService>();
+var jwt=builder.Configuration.GetSection("Jwt");var secret=jwt["Key"] ?? "";if(secret.Length<32 || secret.StartsWith("REPLACE_"))throw new InvalidOperationException("Set Jwt:Key with a secure random secret (at least 32 characters) using user-secrets or environment variables.");
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>o.TokenValidationParameters=new TokenValidationParameters{ValidateIssuer=true,ValidIssuer=jwt["Issuer"],ValidateAudience=true,ValidAudience=jwt["Audience"],ValidateLifetime=true,ValidateIssuerSigningKey=true,IssuerSigningKey=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),ClockSkew=TimeSpan.FromSeconds(30)});
+builder.Services.AddAuthorization();builder.Services.AddCors(o=>o.AddPolicy("Frontend",p=>p.WithOrigins("http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
+var app=builder.Build();if(app.Environment.IsDevelopment()){app.UseSwagger();app.UseSwaggerUI();}app.UseCors("Frontend");app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.Run();
